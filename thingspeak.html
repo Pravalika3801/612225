@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>Where is Contolini?</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <meta itemprop="description" content="Where is Contolini?">
+	<meta itemprop="image" content="https://i.imgur.com/2o2QlvU.png">
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.26.0/mapbox-gl.js'></script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/fetch/1.0.0/fetch.min.js'></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/2.0.3/timeago.min.js"></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.26.0/mapbox-gl.css' rel='stylesheet' />
+    <style>
+      body {
+          margin: 0;
+          padding: 0;
+      }
+      #map {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 100%;
+      }
+      #marker {
+          background-image: url('https://i.imgur.com/2o2QlvU.png');
+          background-size: cover;
+          width: 50px;
+          height: 63px;
+          cursor: pointer;
+      }
+      .mapboxgl-popup {
+          max-width: 200px;
+      }
+    </style>
+</head>
+<body>
+
+<div id='map'></div>
+<script>
+mapboxgl.accessToken = 'sk.eyJ1IjoicHJhdmFsaWthMzgwMSIsImEiOiJjanBzOWEwamgwenNxNDN0YzR5cDhxc3N1In0.KnT-ilZ940V8W5PSB3Wx6w';
+fetch('https://api.thingspeak.com/channels/176537/feeds.json?results=500')
+  .then(function(response) {
+    return response.json();
+  })
+  .then(function(json) {
+    var points = json.feeds.map(function(point) {
+      return {
+        coords: [parseFloat(point.field3), parseFloat(point.field2)],
+        time: point.field1
+      };
+    });
+    draw(points);
+  });
+function draw(points) {
+  var monument = points[points.length - 1];
+  var map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v9',
+    center: monument.coords,
+    zoom: 15
+  });
+  
+  map.addControl(new mapboxgl.NavigationControl());
+  // create the popup
+  var text = new timeago().format(monument.time) + "<br />" + monument.coords[0] + ", " + monument.coords[1];
+  var popup = new mapboxgl.Popup({
+      offset: [0, -30]
+    })
+    .setHTML(text);
+  // create DOM element for the marker
+  var el = document.createElement('div');
+  el.id = 'marker';
+  points = points.map(function(point) {
+    return point.coords;
+  });
+  map.on('load', function() {
+    map.addSource("route", {
+      "type": "geojson",
+      "data": {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+          "type": "LineString",
+          "coordinates": points
+        }
+      }
+    });
+    map.addLayer({
+      "id": "route",
+      "type": "line",
+      "source": "route",
+      "layout": {
+        "line-join": "round",
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#888",
+        "line-width": 8
+      }
+    });
+    // create the marker
+    new mapboxgl.Marker(el, {
+        offset: [-25, -25]
+      })
+      .setLngLat(monument.coords)
+      .setPopup(popup) // sets a popup on this marker
+      .addTo(map);
+  });
+}
+</script>
+
+</body>
+</html>
